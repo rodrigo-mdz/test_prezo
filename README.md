@@ -15,7 +15,7 @@ Este proyecto es una API simple para gestionar recetas y sus detalles. Proporcio
 
 ## Instalación
 
-1. Clona el repositorio o descarga el codigo:
+1. Clona el repositorio o descarga el codigo / branch master o feat-create-api-rest-laravel-recipes ,las dos ramas estan actualizadas: 
 2.Accede al directorio del proyecto en la consola
 3.composer install (instala dependencias) en la carpeta del proyecto .
 4.Copia el archivo de configuración: cp .env.example .env Configura la base de datos en el archivo .env con tus credenciales.
