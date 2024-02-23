@@ -14,7 +14,7 @@ class RecipeController extends Controller
             'name' => 'required|string',
             'price' => 'required|numeric',
             'lines' => 'array',
-            'lines.*.ingredient_name' => 'string',
+            'lines.*.name' => 'string', 
             'lines.*.quantity_brut' => 'numeric',
             'lines.*.quantity_net' => 'numeric',
             'lines.*.price_unit' => 'numeric',
@@ -26,17 +26,22 @@ class RecipeController extends Controller
         ]);
 
         foreach ($recipeData['lines'] as $lineData) {
+            // Si la línea es una receta, calcular su costo y asignarlo a la línea
+            if (isset($lineData['recipe_id'])) {
+                $subRecipe = Recipe::find($lineData['recipe_id']);
+                $lineData['cost'] = $subRecipe->calculateCost();
+            }
+
             $recipe->lines()->create($lineData);
         }
 
-       // Crear receta y Calcular el costo 
-       $cost = $recipe->calculateCost();
-       $recipe->cost = $cost;
-       $recipe->save();
+        // Calcular el costo total de la receta 
+        $cost = $recipe->calculateCost();
+        $recipe->cost = $cost;
+        $recipe->save();
 
         return response()->json(['message' => 'Recipe created successfully']);
     }
-
 
     public function getSortedRecipes()
 {
@@ -53,75 +58,99 @@ class RecipeController extends Controller
 }
 
 
-    public function getMostProfitableRecipe()
-    {
-        $recipes = Recipe::with('lines')->get();
-    
-        // Ordenar las recetas por costo en orden ascendente
-        $sortedRecipes = $recipes->sortBy(function ($recipe) {
-            return $recipe->calculateCost();
-        });
-    
-        // Tomar la primera receta (la más rentable)
-        $mostProfitableRecipe = $sortedRecipes->first();
-    
-        // Verificar si $mostProfitableRecipe es un objeto válido
-        if ($mostProfitableRecipe instanceof Recipe) {
-            // Crear una respuesta JSON con información adicional
-            return response()->json([
-                'message' => 'Most profitable recipe found.',
-                'recipe_info' => [
-                    'id' => $mostProfitableRecipe->id,
-                    'name' => $mostProfitableRecipe->name,
-                    'price' => $mostProfitableRecipe->price,
-                ],
-                'cost' => $mostProfitableRecipe->calculateCost(),
-            ]);
-        } else {
-            // Manejar caso en el que no se puede determinar la receta más rentable
-            return response()->json([
-                'message' => 'Unable to determine most profitable recipe.',
-                'recipe_info' => null,
-                'cost' => null,
-            ], 500);
+public function getMostProfitableRecipe()
+{
+    $recipes = Recipe::with('lines')->get();
+
+    // Filtrar recetas que tengan costo y precio
+    $validRecipes = $recipes->filter(function ($recipe) {
+        return $recipe->cost !== null && $recipe->price !== null;
+    });
+
+    // Calcular rentabilidad para cada receta y obtener la más rentable
+    $mostProfitableRecipe = $validRecipes->reduce(function ($carry, $recipe) {
+        $profitability = $recipe->price - $recipe->cost;
+
+        // Si $carry es null o la rentabilidad actual es mayor que la almacenada, actualizar
+        if ($carry === null || $profitability > $carry['profitability']) {
+            return [
+                'recipe' => $recipe,
+                'profitability' => $profitability,
+            ];
         }
+
+        return $carry;
+    }, null);
+
+    // Verificar si se encontró la receta más rentable
+    if ($mostProfitableRecipe !== null) {
+        return response()->json([
+            'message' => 'Most profitable recipe found.',
+            'recipe_info' => [
+                'id' => $mostProfitableRecipe['recipe']->id,
+                'name' => $mostProfitableRecipe['recipe']->name,
+                'price' => $mostProfitableRecipe['recipe']->price,
+            ],
+            'cost' => $mostProfitableRecipe['recipe']->cost,
+            'profitability' => $mostProfitableRecipe['profitability'],
+        ]);
+    } else {
+        return response()->json([
+            'message' => 'Unable to determine most profitable recipe.',
+            'recipe_info' => null,
+            'cost' => null,
+            'profitability' => null,
+        ], 500);
     }
+}
+
     
 
     public function getLeastProfitableRecipe()
     {
-        
         $recipes = Recipe::with('lines')->get();
     
-        
-       // Ordenar las recetas por costo en orden descendente
-        $sortedRecipes =  $recipes->sortByDesc(function ($recipe) {
-            return $recipe->calculateCost();
+        // Filtrar recetas que tengan costo y precio
+        $validRecipes = $recipes->filter(function ($recipe) {
+            return $recipe->cost !== null && $recipe->price !== null;
         });
     
-        // Tomar la primera receta (la menos rentable)
-        $leastProfitableRecipe = $sortedRecipes->first();
+        // Calcular rentabilidad para cada receta y obtener la menos rentable
+        $leastProfitableRecipe = $validRecipes->reduce(function ($carry, $recipe) {
+            $profitability = $recipe->price - $recipe->cost;
     
-        // Verificar si $leastProfitableRecipe es un objeto válido
-        if ($leastProfitableRecipe instanceof Recipe) {
-            // Crear una respuesta JSON con información adicional
+            // Si $carry es null o la rentabilidad actual es menor que la almacenada, actualizar
+            if ($carry === null || $profitability < $carry['profitability']) {
+                return [
+                    'recipe' => $recipe,
+                    'profitability' => $profitability,
+                ];
+            }
+    
+            return $carry;
+        }, null);
+    
+        // Verificar si se encontró la receta menos rentable
+        if ($leastProfitableRecipe !== null) {
             return response()->json([
                 'message' => 'Least profitable recipe found.',
                 'recipe_info' => [
-                    'id' => $leastProfitableRecipe->id,
-                    'name' => $leastProfitableRecipe->name,
-                    'price' => $leastProfitableRecipe->price,
+                    'id' => $leastProfitableRecipe['recipe']->id,
+                    'name' => $leastProfitableRecipe['recipe']->name,
+                    'price' => $leastProfitableRecipe['recipe']->price,
                 ],
-                'cost' => $leastProfitableRecipe->calculateCost(),
+                'cost' => $leastProfitableRecipe['recipe']->cost,
+                'profitability' => $leastProfitableRecipe['profitability'],
             ]);
         } else {
-            // Manejar caso en el que no se puede determinar la receta menos rentable
             return response()->json([
                 'message' => 'Unable to determine least profitable recipe.',
                 'recipe_info' => null,
                 'cost' => null,
+                'profitability' => null,
             ], 500);
         }
     }
+    
     
 }

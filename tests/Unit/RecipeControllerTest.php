@@ -20,14 +20,14 @@ class RecipeControllerTest extends TestCase
     public function testCreateRecipe()
     {
         $postData = [
-            'name' => 'Test Recipe',
-            'price' => 10.99,
+            'name' => 'Bolognesa',
+            'price' => 12.99,
             'lines' => [
                 [
-                    'ingredient_name' => 'Ingredient 1',
-                    'quantity_brut' => 5,
-                    'quantity_net' => 7,
-                    'price_unit' => 4.5,
+                    'ingredient_name' => 'Carne picada',
+                    'quantity_brut' => 1.8,
+                    'quantity_net' => 0.8,
+                    'price_unit' => 1.67,
                 ],
                
             ],
